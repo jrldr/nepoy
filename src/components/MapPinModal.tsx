@@ -7,11 +7,19 @@ import { calculateHaversineDistanceKm } from '../utils/pigeonCalc';
 interface MapPinModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onApplyDistance: (distanceKm: number, pointAName?: string, pointBName?: string) => void;
+  onApplyDistance: (
+    distanceKm: number,
+    pointAName?: string,
+    pointBName?: string,
+    pointACoords?: { lat: number; lng: number },
+    pointBCoords?: { lat: number; lng: number }
+  ) => void;
   initialDistanceKm?: number;
+  initialPointA?: MapPoint;
+  initialPointB?: MapPoint;
 }
 
-interface MapPoint {
+export interface MapPoint {
   name: string;
   lat: number;
   lng: number;
@@ -21,20 +29,33 @@ export const MapPinModal: React.FC<MapPinModalProps> = ({
   isOpen,
   onClose,
   onApplyDistance,
+  initialPointA,
+  initialPointB,
 }) => {
-  // Point A = Liberation / Release Site (default: Tuguegarao or popular station)
-  const [pointA, setPointA] = useState<MapPoint>({
-    name: 'Tuguegarao City (Release)',
-    lat: 17.6132,
-    lng: 121.7270,
-  });
+  // Point A = Liberation / Release Site
+  const [pointA, setPointA] = useState<MapPoint>(
+    initialPointA || {
+      name: 'Release Station (Point A)',
+      lat: 16.9248,
+      lng: 121.7738,
+    }
+  );
 
-  // Point B = Loft / Home Base (default: Manila)
-  const [pointB, setPointB] = useState<MapPoint>({
-    name: 'Manila Loft (Home)',
-    lat: 14.5995,
-    lng: 120.9842,
-  });
+  // Point B = Loft / Home Base
+  const [pointB, setPointB] = useState<MapPoint>(
+    initialPointB || {
+      name: 'My Loft (Point B)',
+      lat: 14.5995,
+      lng: 120.9842,
+    }
+  );
+
+  useEffect(() => {
+    if (isOpen) {
+      if (initialPointA) setPointA(initialPointA);
+      if (initialPointB) setPointB(initialPointB);
+    }
+  }, [isOpen, initialPointA, initialPointB]);
 
   const [activePinTarget, setActivePinTarget] = useState<'A' | 'B'>('A');
   const [searchQuery, setSearchQuery] = useState('');
@@ -449,7 +470,13 @@ export const MapPinModal: React.FC<MapPinModalProps> = ({
             </button>
             <button
               onClick={() => {
-                onApplyDistance(distanceInfo.distanceKm, pointA.name, pointB.name);
+                onApplyDistance(
+                  distanceInfo.distanceKm,
+                  pointA.name,
+                  pointB.name,
+                  { lat: pointA.lat, lng: pointA.lng },
+                  { lat: pointB.lat, lng: pointB.lng }
+                );
                 onClose();
               }}
               className="w-2/3 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold shadow-md shadow-sky-600/30 flex items-center justify-center gap-1.5 transition active:scale-98 cursor-pointer"

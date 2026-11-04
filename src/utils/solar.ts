@@ -17,12 +17,22 @@ export interface LocationCoordinates {
   timezoneOffset?: number; // hours from UTC, e.g. +8 for Manila
 }
 
-export const MANILA_COORDINATES: LocationCoordinates = {
-  name: 'Manila, Philippines',
+export const DEFAULT_COORDINATES: LocationCoordinates = {
+  name: 'Local Loft Area',
   lat: 14.5995,
   lng: 120.9842,
   timezoneOffset: 8,
 };
+
+export const MANILA_COORDINATES = DEFAULT_COORDINATES;
+
+export function getLocalTimezoneName(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Local';
+  } catch {
+    return 'Local';
+  }
+}
 
 // Convert degrees to radians
 function toRad(deg: number): number {

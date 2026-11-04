@@ -9,7 +9,7 @@ interface SunTimesCardProps {
   isAutoLocal: boolean;
   isLoadingLocal: boolean;
   onAutoLocalClick: () => void;
-  onResetManila: () => void;
+  onResetLocation: () => void;
   isDeadTimeActive: boolean;
   customOverride?: { sunriseHour?: number; sunsetHour?: number };
   onUpdateOverride?: (override?: { sunriseHour?: number; sunsetHour?: number }) => void;
@@ -22,7 +22,7 @@ export const SunTimesCard: React.FC<SunTimesCardProps> = ({
   isAutoLocal,
   isLoadingLocal,
   onAutoLocalClick,
-  onResetManila,
+  onResetLocation,
   isDeadTimeActive,
   customOverride,
   onUpdateOverride,
@@ -44,8 +44,8 @@ export const SunTimesCard: React.FC<SunTimesCardProps> = ({
               GPS
             </span>
           ) : (
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-400">
-              Default
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+              Station
             </span>
           )}
         </div>
@@ -67,11 +67,11 @@ export const SunTimesCard: React.FC<SunTimesCardProps> = ({
 
           {isAutoLocal && (
             <button
-              onClick={onResetManila}
+              onClick={onResetLocation}
               className="px-2 py-1 rounded-lg text-[11px] text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition cursor-pointer"
-              title="Reset to Manila"
+              title="Reset location"
             >
-              Manila
+              Reset
             </button>
           )}
 

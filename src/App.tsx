@@ -17,7 +17,7 @@ import { TargetArrivalTable } from './components/TargetArrivalTable';
 import { RaceHistoryModal, SavedRace } from './components/RaceHistoryModal';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import {
-  MANILA_COORDINATES,
+  DEFAULT_COORDINATES,
   calculateSolarTimes,
   LocationCoordinates,
 } from './utils/solar';
@@ -25,7 +25,7 @@ import { safeStorage } from './utils/storage';
 import {
   calculatePigeonSpeed,
   generateTargetArrivals,
-  calculateFlightBreakdown,
+  calculateHaversineDistanceKm,
   SpeedResult,
   TargetArrivalItem,
 } from './utils/pigeonCalc';
@@ -82,11 +82,14 @@ export default function App() {
 
   useEffect(() => {
     try {
+      const root = document.documentElement;
       if (darkMode) {
-        document.documentElement.classList.add('dark');
+        root.classList.add('dark');
+        root.setAttribute('data-theme', 'dark');
         safeStorage.setItem('pigeon_theme', 'dark');
       } else {
-        document.documentElement.classList.remove('dark');
+        root.classList.remove('dark');
+        root.setAttribute('data-theme', 'light');
         safeStorage.setItem('pigeon_theme', 'light');
       }
     } catch {
@@ -94,16 +97,28 @@ export default function App() {
     }
   }, [darkMode]);
 
-  // Location & Sun Times State (Default: Manila)
-  const [location, setLocation] = useState<LocationCoordinates>(MANILA_COORDINATES);
+  // Location & Sun Times State (General default, user customizable)
+  const [location, setLocation] = useState<LocationCoordinates>(DEFAULT_COORDINATES);
   const [isAutoLocal, setIsAutoLocal] = useState<boolean>(false);
   const [isLoadingLocal, setIsLoadingLocal] = useState<boolean>(false);
   const [customOverride, setCustomOverride] = useState<{ sunriseHour?: number; sunsetHour?: number } | undefined>();
 
-  // Race Parameters State
+  // Race Parameters & Coordinates State (General)
   const [distanceKm, setDistanceKm] = useState<number>(350);
-  const [pointAName, setPointAName] = useState<string>('Tuguegarao');
-  const [pointBName, setPointBName] = useState<string>('Manila Loft');
+  const [pointAName, setPointAName] = useState<string>('Release Station (Point A)');
+  const [pointBName, setPointBName] = useState<string>('My Loft (Point B)');
+  const [pointACoords, setPointACoords] = useState<{ lat: number; lng: number } | null>({
+    lat: 16.9248,
+    lng: 121.7738,
+  });
+  const [pointBCoords, setPointBCoords] = useState<{ lat: number; lng: number } | null>({
+    lat: 14.5995,
+    lng: 120.9842,
+  });
+
+  // GPS Loft Location State
+  const [isLocatingPointB, setIsLocatingPointB] = useState<boolean>(false);
+  const [isPointBUserLocation, setIsPointBUserLocation] = useState<boolean>(false);
 
   // Date and Time inputs
   const today = useMemo(() => new Date(), []);
@@ -196,7 +211,72 @@ export default function App() {
     );
   }, [distanceKm, releaseDateObj, location, customOverride]);
 
-  // Auto-Local Geolocation Handler
+  // Get User's Current Location as Point B (Loft)
+  const handleGetLocationAsPointB = () => {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by your browser.');
+      return;
+    }
+    setIsLocatingPointB(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        let loftName = `My Loft (${latitude.toFixed(3)}°, ${longitude.toFixed(3)}°)`;
+
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+          );
+          const data = await res.json();
+          if (data && data.address) {
+            const area =
+              data.address.suburb ||
+              data.address.neighbourhood ||
+              data.address.city ||
+              data.address.town ||
+              data.address.municipality;
+            if (area) {
+              loftName = `${area} Loft`;
+            }
+          }
+        } catch {
+          // offline fallback is fine
+        }
+
+        setPointBCoords({ lat: latitude, lng: longitude });
+        setPointBName(loftName);
+        setIsPointBUserLocation(true);
+        setIsLocatingPointB(false);
+
+        // Also update local sun times to user's exact loft location!
+        setLocation({
+          name: `${loftName} (Sun)`,
+          lat: latitude,
+          lng: longitude,
+        });
+        setIsAutoLocal(true);
+
+        // If Point A coordinates exist, recalculate crow flight distance
+        if (pointACoords) {
+          const res = calculateHaversineDistanceKm(
+            pointACoords.lat,
+            pointACoords.lng,
+            latitude,
+            longitude
+          );
+          setDistanceKm(res.distanceKm);
+        }
+      },
+      (err) => {
+        setIsLocatingPointB(false);
+        console.warn('Geolocation error:', err.message);
+        alert('Could not get GPS location. Please check location permissions.');
+      },
+      { timeout: 10000, enableHighAccuracy: true }
+    );
+  };
+
+  // Auto-Local Geolocation for general sun times
   const handleAutoLocal = () => {
     if (!navigator.geolocation) {
       alert('Geolocation is not supported by your browser.');
@@ -241,8 +321,8 @@ export default function App() {
     );
   };
 
-  const handleResetManila = () => {
-    setLocation(MANILA_COORDINATES);
+  const handleResetLocation = () => {
+    setLocation(DEFAULT_COORDINATES);
     setIsAutoLocal(false);
   };
 
@@ -250,12 +330,17 @@ export default function App() {
   const handleResetAll = () => {
     const now = new Date();
     setDistanceKm(350);
-    setPointAName('Tuguegarao');
-    setPointBName('Manila Loft');
+    setPointAName('Release Station (Point A)');
+    setPointBName('My Loft (Point B)');
+    setIsPointBUserLocation(false);
+    setPointACoords({ lat: 16.9248, lng: 121.7738 });
+    setPointBCoords({ lat: 14.5995, lng: 120.9842 });
     setReleaseDateStr(toDateInputValue(now));
     setReleaseTimeStr('06:00');
     setArrivalDateStr('');
     setArrivalTimeStr('');
+    setLocation(DEFAULT_COORDINATES);
+    setIsAutoLocal(false);
   };
 
   // Quick action: Set release to right now
@@ -326,10 +411,26 @@ export default function App() {
   };
 
   // Apply distance from map modal
-  const handleApplyMapDistance = (km: number, aName?: string, bName?: string) => {
+  const handleApplyMapDistance = (
+    km: number,
+    aName?: string,
+    bName?: string,
+    aCoords?: { lat: number; lng: number },
+    bCoords?: { lat: number; lng: number }
+  ) => {
     setDistanceKm(km);
     if (aName) setPointAName(aName);
     if (bName) setPointBName(bName);
+    if (aCoords) setPointACoords(aCoords);
+    if (bCoords) {
+      setPointBCoords(bCoords);
+      // Also sync solar calculation to loft if Point B was set on map
+      setLocation((prev) => ({
+        name: bName || prev.name,
+        lat: bCoords.lat,
+        lng: bCoords.lng,
+      }));
+    }
   };
 
   return (
@@ -349,7 +450,7 @@ export default function App() {
 
       {/* Main Container */}
       <main className="flex-1 w-full max-w-md mx-auto px-4 py-4 space-y-4">
-        {/* Sunrise & Sunset Card with Manila / Auto-Local GPS */}
+        {/* Sunrise & Sunset Card */}
         <SunTimesCard
           location={location}
           sunrise={solarTimes.sunrise}
@@ -357,19 +458,22 @@ export default function App() {
           isAutoLocal={isAutoLocal}
           isLoadingLocal={isLoadingLocal}
           onAutoLocalClick={handleAutoLocal}
-          onResetManila={handleResetManila}
+          onResetLocation={handleResetLocation}
           isDeadTimeActive={isDeadTimeNow}
           customOverride={customOverride}
           onUpdateOverride={setCustomOverride}
         />
 
-        {/* Distance Card with Pin Map */}
+        {/* Distance Card with Pin Map and Direct Get My Location for Point B */}
         <DistanceCard
           distanceKm={distanceKm}
           onChangeDistanceKm={setDistanceKm}
           onOpenMap={() => setIsMapOpen(true)}
           pointAName={pointAName}
           pointBName={pointBName}
+          onGetLocationAsPointB={handleGetLocationAsPointB}
+          isLocatingPointB={isLocatingPointB}
+          isPointBUserLocation={isPointBUserLocation}
         />
 
         {/* Liberation / Release Date & Time Card */}
@@ -435,6 +539,16 @@ export default function App() {
         onClose={() => setIsMapOpen(false)}
         onApplyDistance={handleApplyMapDistance}
         initialDistanceKm={distanceKm}
+        initialPointA={
+          pointACoords
+            ? { name: pointAName, lat: pointACoords.lat, lng: pointACoords.lng }
+            : undefined
+        }
+        initialPointB={
+          pointBCoords
+            ? { name: pointBName, lat: pointBCoords.lat, lng: pointBCoords.lng }
+            : undefined
+        }
       />
 
       {/* Race History Modal */}
