@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="50%" stop-color="#1e293b" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+    <linearGradient id="wing" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#f59e0b" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background Circle / Squircle -->
+  <rect width="512" height="512" rx="128" fill="url(#bg)" />
+
+  <!-- Speed Dial Outer Ring -->
+  <circle cx="256" cy="256" r="200" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="8" stroke-dasharray="6 8" />
+  <circle cx="256" cy="256" r="176" fill="none" stroke="url(#accent)" stroke-width="4" stroke-dasharray="140 220" stroke-linecap="round" />
+
+  <!-- Compass / Speed ticks -->
+  <line x1="256" y1="64" x2="256" y2="82" stroke="#38bdf8" stroke-width="4" stroke-linecap="round" />
+  <line x1="256" y1="430" x2="256" y2="448" stroke="#38bdf8" stroke-width="4" stroke-linecap="round" />
+  <line x1="64" y1="256" x2="82" y2="256" stroke="#38bdf8" stroke-width="4" stroke-linecap="round" />
+  <line x1="430" y1="256" x2="448" y2="256" stroke="#38bdf8" stroke-width="4" stroke-linecap="round" />
+
+  <!-- Speed Trail Lines -->
+  <path d="M110 320 Q 180 320 220 300" stroke="#0ea5e9" stroke-width="4" stroke-linecap="round" opacity="0.6" />
+  <path d="M90 280 Q 170 280 230 260" stroke="#38bdf8" stroke-width="5" stroke-linecap="round" opacity="0.8" />
+  <path d="M120 240 Q 190 240 240 230" stroke="#7dd3fc" stroke-width="3" stroke-linecap="round" opacity="0.5" />
+
+  <!-- Dynamic Flying Racing Pigeon Silhouette -->
+  <!-- Main Body & Head -->
+  <path d="M 370 200 C 375 190, 370 175, 355 170 C 342 165, 328 172, 315 185 C 285 210, 240 245, 180 265 C 150 275, 125 285, 105 300 C 135 295, 160 295, 185 290 C 220 285, 275 275, 315 255 C 338 245, 360 225, 370 200 Z" fill="#f8fafc" />
+  
+  <!-- Homing Pigeon Beak -->
+  <polygon points="370,188 395,193 372,198" fill="#f59e0b" />
+  <!-- Eye -->
+  <circle cx="352" cy="183" r="5" fill="#e11d48" />
+  <circle cx="352" cy="183" r="2.5" fill="#0f172a" />
+
+  <!-- Swept Aerodynamic Wing (Upward) -->
+  <path d="M 305 195 C 320 160, 335 110, 310 80 C 290 56, 260 70, 240 100 C 215 138, 190 195, 175 240 C 210 225, 260 210, 305 195 Z" fill="url(#wing)" filter="url(#glow)" />
+  
+  <!-- Feather Layer Detailing -->
+  <path d="M 275 105 C 255 135, 230 180, 215 220 C 235 210, 265 200, 290 190 C 298 165, 305 130, 295 100 Z" fill="#0284c7" opacity="0.4" />
+  <path d="M 245 135 C 230 165, 210 200, 195 230 C 210 222, 235 215, 255 208 Z" fill="#38bdf8" opacity="0.3" />
+
+  <!-- Tail Feathers -->
+  <polygon points="120,295 70,320 150,290" fill="#94a3b8" />
+  <polygon points="105,300 55,335 135,295" fill="#cbd5e1" />
+
+  <!-- Speedometer / Digital MPM indicator badge -->
+  <g transform="translate(256, 385)">
+    <rect x="-70" y="-18" width="140" height="36" rx="18" fill="rgba(15,23,42,0.85)" stroke="#38bdf8" stroke-width="2" />
+    <text x="0" y="6" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="800" fill="#38bdf8" text-anchor="middle" letter-spacing="2">MPM PRO</text>
+  </g>
+</svg>

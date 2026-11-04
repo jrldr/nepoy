@@ -1,0 +1,6 @@
+{
+  "name": "Pigeon Speed Calculator & Tracker",
+  "description": "Professional pigeon racing speed calculator with live mpm tracking, dead time rule, sunrise/sunset times, crow flight map, and target arrival times.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
