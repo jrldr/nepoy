@@ -4,9 +4,27 @@ import { VitePWA } from 'vite-plugin-pwa';
 import path from 'path';
 import {defineConfig} from 'vite';
 
+function resolveBase() {
+  if (process.env.BASE_PATH) {
+    const bp = process.env.BASE_PATH;
+    return bp.endsWith('/') ? bp : `${bp}/`;
+  }
+  if (process.env.GITHUB_REPOSITORY) {
+    const parts = process.env.GITHUB_REPOSITORY.split('/');
+    const repo = parts[1];
+    if (repo && !repo.endsWith('.github.io')) {
+      return `/${repo}/`;
+    }
+    return '/';
+  }
+  return './';
+}
+
 export default defineConfig(() => {
+  const basePath = resolveBase();
+
   return {
-    base: process.env.BASE_PATH || './',
+    base: basePath,
     plugins: [
       react(),
       tailwindcss(),
@@ -14,15 +32,15 @@ export default defineConfig(() => {
         registerType: 'autoUpdate',
         includeAssets: ['icon.svg', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
         manifest: {
-          id: '/',
+          id: basePath,
           name: 'Pigeon Speed Calculator',
           short_name: 'PigeonCalc',
           description: 'Pigeon Racing Speed Calculator with live MPM, dead time rule, sunrise/sunset, and target arrivals.',
           theme_color: '#0f172a',
           background_color: '#0f172a',
           display: 'standalone',
-          start_url: '/',
-          scope: '/',
+          start_url: basePath,
+          scope: basePath,
           icons: [
             {
               src: '/pwa-192x192.png',
