@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Search, MapPin, Navigation, Check, Compass, Flame } from 'lucide-react';
+import { X, Search, MapPin, Navigation, Check, Compass } from 'lucide-react';
 import L from 'leaflet';
-import { POPULAR_STATIONS } from '../utils/stations';
 import { calculateHaversineDistanceKm } from '../utils/pigeonCalc';
 import { getCurrentGpsLocation, reverseGeocodeName } from '../utils/geo';
 
@@ -266,15 +265,7 @@ export const MapPinModal: React.FC<MapPinModalProps> = ({
       const data = await res.json();
       setSearchResults(data || []);
     } catch {
-      // Offline fallback: filter stations
-      const filtered = POPULAR_STATIONS.filter((s) =>
-        s.name.toLowerCase().includes(searchQuery.toLowerCase())
-      ).map((s) => ({
-        display_name: s.name,
-        lat: s.lat.toString(),
-        lon: s.lng.toString(),
-      }));
-      setSearchResults(filtered);
+      setSearchResults([]);
     }
   };
 
@@ -440,29 +431,6 @@ export const MapPinModal: React.FC<MapPinModalProps> = ({
               ))}
             </div>
           )}
-
-          {/* Popular Racing Stations Pills */}
-          <div className="flex items-center gap-1 overflow-x-auto pb-1 text-[11px] scrollbar-none">
-            <span className="text-slate-400 dark:text-slate-500 shrink-0 text-[10px] uppercase font-bold flex items-center gap-0.5">
-              <Flame className="w-3 h-3 text-amber-500" /> Presets:
-            </span>
-            {POPULAR_STATIONS.slice(0, 6).map((st) => (
-              <button
-                key={st.name}
-                onClick={() => {
-                  if (activePinTarget === 'A') {
-                    setPointA({ name: st.name, lat: st.lat, lng: st.lng });
-                    setActivePinTarget('B');
-                  } else {
-                    setPointB({ name: st.name, lat: st.lat, lng: st.lng });
-                  }
-                }}
-                className="px-2 py-0.5 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-sky-500 text-slate-700 dark:text-slate-300 shrink-0 text-[11px] cursor-pointer"
-              >
-                {st.name.split(',')[0]}
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* Map Container */}

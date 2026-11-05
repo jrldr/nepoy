@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Clock, Moon, Sun, Gauge, Zap } from 'lucide-react';
-import { calculatePigeonSpeed, SpeedResult, formatDuration } from '../utils/pigeonCalc';
+import { Activity, Clock, Moon, Zap, Timer } from 'lucide-react';
+import {
+  calculatePigeonSpeed,
+  calculateArrivalDateForFlyingMinutes,
+  SpeedResult,
+  formatDuration,
+} from '../utils/pigeonCalc';
 import { formatTime12h } from '../utils/solar';
 
 interface LiveSpeedCardProps {
@@ -71,6 +76,70 @@ export const LiveSpeedCard: React.FC<LiveSpeedCardProps> = ({
   );
 
   if (!liveResult) return null;
+
+  // Rule: Only start live speed tracking display when calculated live speed <= 1400 MPM
+  if (liveResult.mpm > 1400) {
+    const requiredFlyingMinutes = (distanceKm * 1000) / 1400;
+    const { arrivalDate: target1400Date } = calculateArrivalDateForFlyingMinutes(
+      releaseDate,
+      requiredFlyingMinutes,
+      lat,
+      lng,
+      customOverride
+    );
+
+    const diffTo1400Ms = Math.max(0, target1400Date.getTime() - liveNow.getTime());
+
+    return (
+      <div className="bg-gradient-to-br from-sky-900 via-slate-900 to-slate-900 text-white rounded-2xl p-4 border border-sky-700/70 shadow-sm relative overflow-hidden">
+        <div className="flex items-center justify-between pb-2 border-b border-white/10 relative z-10">
+          <div className="flex items-center gap-2">
+            <Timer className="w-4 h-4 text-amber-400 animate-pulse" />
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-200">
+              Liberation In Progress
+            </span>
+          </div>
+          <span className="text-[10px] font-mono text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-500/30 font-semibold">
+            &gt; 1,400 MPM
+          </span>
+        </div>
+
+        <div className="my-3 text-center relative z-10">
+          <div className="text-[10px] uppercase font-semibold tracking-wider text-slate-300">
+            Waiting for 1,400 MPM Speed Window
+          </div>
+          <div className="text-3xl sm:text-4xl font-black font-mono tracking-tight text-amber-400 mt-1 drop-shadow-sm">
+            -{formatDuration(diffTo1400Ms)}
+          </div>
+          <div className="text-xs font-medium text-slate-300 mt-1">
+            Expected 1,400 MPM at <strong className="text-white font-mono">{formatTime12h(target1400Date)}</strong>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/10 text-xs relative z-10">
+          <div className="p-2 rounded-xl bg-white/5 border border-white/5">
+            <div className="text-[10px] text-slate-400 flex items-center gap-1">
+              <Clock className="w-3 h-3 text-sky-400" />
+              Elapsed Flight Time
+            </div>
+            <div className="text-sm font-bold font-mono text-white mt-0.5">
+              {liveResult.breakdown.formattedFlyingTime}
+            </div>
+          </div>
+
+          <div className="p-2 rounded-xl bg-white/5 border border-white/5">
+            <div className="text-[10px] text-slate-400 flex items-center gap-1">
+              <Zap className="w-3 h-3 text-amber-400" />
+              Live Tracking Window
+            </div>
+            <div className="text-xs font-bold font-mono text-amber-300 mt-1">
+              Starts at ≤ 1,400 MPM
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const isDeadTime = liveResult.breakdown.isCurrentlyDeadTime;
 

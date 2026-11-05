@@ -140,7 +140,7 @@ export default function App() {
 
   // Race Parameters & Coordinates State
   const [distanceKm, setDistanceKm] = useState<number>(
-    initialActiveState?.distanceKm ?? 350
+    initialActiveState?.distanceKm ?? 0
   );
   const [pointAName, setPointAName] = useState<string>(
     initialActiveState?.pointAName || 'Release Station (Point A)'
@@ -161,12 +161,12 @@ export default function App() {
     initialActiveState?.isPointBUserLocation ?? false
   );
 
-  // Date and Time inputs
+  // Date and Time inputs (blank by default unless user previously entered data)
   const [releaseDateStr, setReleaseDateStr] = useState<string>(
-    initialActiveState?.releaseDateStr || toDateInputValue(today)
+    initialActiveState?.releaseDateStr ?? ''
   );
   const [releaseTimeStr, setReleaseTimeStr] = useState<string>(
-    initialActiveState?.releaseTimeStr || '06:00'
+    initialActiveState?.releaseTimeStr ?? ''
   );
 
   const [arrivalDateStr, setArrivalDateStr] = useState<string>(
@@ -360,15 +360,14 @@ export default function App() {
 
   // Reset all calculator inputs & clear saved active state
   const handleResetAll = () => {
-    const now = new Date();
-    setDistanceKm(350);
+    setDistanceKm(0);
     setPointAName('Release Station (Point A)');
     setPointBName('My Loft (Point B)');
     setIsPointBUserLocation(false);
     setPointACoords({ lat: 16.9248, lng: 121.7738 });
     setPointBCoords({ lat: 14.5995, lng: 120.9842 });
-    setReleaseDateStr(toDateInputValue(now));
-    setReleaseTimeStr('06:00');
+    setReleaseDateStr('');
+    setReleaseTimeStr('');
     setArrivalDateStr('');
     setArrivalTimeStr('');
     setLocation(DEFAULT_COORDINATES);

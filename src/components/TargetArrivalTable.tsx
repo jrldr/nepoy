@@ -1,5 +1,5 @@
 import React from 'react';
-import { Target, Clock, Moon, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { Target, Clock, Moon } from 'lucide-react';
 import { TargetArrivalItem } from '../utils/pigeonCalc';
 
 interface TargetArrivalTableProps {
@@ -14,7 +14,15 @@ export const TargetArrivalTable: React.FC<TargetArrivalTableProps> = ({
   currentLiveMpm,
 }) => {
   if (targets.length === 0) {
-    return null;
+    return (
+      <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200/80 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400 shadow-sm">
+        <Target className="w-5 h-5 mx-auto mb-1.5 text-sky-500 opacity-80" />
+        <p className="font-bold text-slate-800 dark:text-slate-200">Target Arrival Table</p>
+        <p className="text-[11px] text-slate-400 mt-0.5">
+          Enter Race Distance & Liberation Time above to generate the 1,400 to 600 MPM target arrival schedule.
+        </p>
+      </div>
+    );
   }
 
   // Find which bracket achievedMpm falls into
@@ -51,7 +59,6 @@ export const TargetArrivalTable: React.FC<TargetArrivalTableProps> = ({
       <div className="mt-3 divide-y divide-slate-100 dark:divide-slate-800/80">
         {targets.map((item) => {
           const isAchieved = getBracketStatus(item.mpm) === 'achieved';
-          const isLiveAhead = currentLiveMpm !== undefined && currentLiveMpm >= item.mpm;
 
           return (
             <div

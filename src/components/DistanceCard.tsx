@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Map, Route, Navigation, Crosshair, Check } from 'lucide-react';
+import { Map, Route, Navigation, Check } from 'lucide-react';
 
 interface DistanceCardProps {
   distanceKm: number;
@@ -53,9 +53,6 @@ export const DistanceCard: React.FC<DistanceCardProps> = ({
     setUnit(newUnit);
   };
 
-  // Quick preset distances
-  const presetDistances = [120, 200, 300, 350, 420, 500];
-
   return (
     <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200/90 dark:border-slate-800 shadow-sm transition-colors">
       <div className="flex items-center justify-between pb-2 mb-2">
@@ -100,7 +97,7 @@ export const DistanceCard: React.FC<DistanceCardProps> = ({
             placeholder={unit === 'km' ? 'e.g. 350.250' : 'e.g. 350250'}
             value={rawInput}
             onChange={(e) => handleInputChange(e.target.value)}
-            className="w-full px-3.5 py-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white font-mono text-lg font-bold placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 transition"
+            className="w-full px-3.5 py-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white font-mono text-lg font-bold placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 transition [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           />
           <div className="absolute right-3.5 top-3.5 text-xs font-bold text-slate-400 dark:text-slate-500 uppercase pointer-events-none">
             {unit}
@@ -164,32 +161,6 @@ export const DistanceCard: React.FC<DistanceCardProps> = ({
           <span className="text-[10px] font-mono shrink-0 ml-1 font-bold">Crow Flight</span>
         </div>
       )}
-
-      {/* Converted meters / km info & presets */}
-      <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
-        <span>
-          {distanceKm > 0 ? (
-            <>
-              Total: <strong className="font-mono text-slate-800 dark:text-slate-200">{(distanceKm * 1000).toLocaleString()}</strong> m ({(distanceKm).toFixed(3)} km)
-            </>
-          ) : (
-            'Enter distance or click Pin Map'
-          )}
-        </span>
-
-        {/* Quick presets */}
-        <div className="flex items-center gap-1">
-          {presetDistances.map((km) => (
-            <button
-              key={km}
-              onClick={() => onChangeDistanceKm(km)}
-              className="px-1.5 py-0.5 rounded text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-sky-50 hover:text-sky-600 dark:hover:bg-slate-700 transition cursor-pointer"
-            >
-              {km}k
-            </button>
-          ))}
-        </div>
-      </div>
     </div>
   );
 };
