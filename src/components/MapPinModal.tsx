@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Search, MapPin, Navigation, Check, ArrowRight, Compass, Building2, Flame } from 'lucide-react';
+import { X, Search, MapPin, Navigation, Check, Compass, Flame } from 'lucide-react';
 import L from 'leaflet';
-import { POPULAR_STATIONS, PigeonStation } from '../utils/stations';
+import { POPULAR_STATIONS } from '../utils/stations';
 import { calculateHaversineDistanceKm } from '../utils/pigeonCalc';
+import { getCurrentGpsLocation, reverseGeocodeName } from '../utils/geo';
 
 interface MapPinModalProps {
   isOpen: boolean;
@@ -59,9 +60,9 @@ export const MapPinModal: React.FC<MapPinModalProps> = ({
 
   const [activePinTarget, setActivePinTarget] = useState<'A' | 'B'>('A');
   const [searchQuery, setSearchQuery] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<Array<{ display_name: string; lat: string; lon: string }>>([]);
-  const [isLocatingLoft, setIsLocatingLoft] = useState(false);
+  const [isLocatingPointA, setIsLocatingPointA] = useState(false);
+  const [isLocatingPointB, setIsLocatingPointB] = useState(false);
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -72,12 +73,14 @@ export const MapPinModal: React.FC<MapPinModalProps> = ({
   // Calculate distance
   const distanceInfo = calculateHaversineDistanceKm(pointA.lat, pointA.lng, pointB.lat, pointB.lng);
 
-  // Initialize or re-render map
+  // Leaflet map setup and size invalidation fix
   useEffect(() => {
     if (!isOpen) return;
 
-    // Small delay to allow modal DOM layout to settle
-    const timer = setTimeout(() => {
+    let resizeObserver: ResizeObserver | null = null;
+    const timers: NodeJS.Timeout[] = [];
+
+    const initializeMap = () => {
       if (!mapContainerRef.current) return;
 
       if (!mapInstanceRef.current) {
@@ -97,7 +100,7 @@ export const MapPinModal: React.FC<MapPinModalProps> = ({
           const { lat, lng } = e.latlng;
           if (activePinTarget === 'A') {
             setPointA({
-              name: `Pinned Site (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
+              name: `Pinned Station (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
               lat,
               lng,
             });
@@ -112,15 +115,34 @@ export const MapPinModal: React.FC<MapPinModalProps> = ({
         });
 
         mapInstanceRef.current = map;
-      } else {
-        mapInstanceRef.current.invalidateSize();
       }
 
-      updateMapLayers();
-    }, 150);
+      // Ensure map resizes properly when modal container becomes visible
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize();
+        updateMapLayers();
+      }
+    };
+
+    // Staggered size invalidation to fix "sometimes map is not showing"
+    initializeMap();
+    timers.push(setTimeout(initializeMap, 100));
+    timers.push(setTimeout(initializeMap, 300));
+    timers.push(setTimeout(initializeMap, 600));
+
+    // ResizeObserver to continuously handle map container resizes
+    if (mapContainerRef.current && typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(() => {
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.invalidateSize();
+        }
+      });
+      resizeObserver.observe(mapContainerRef.current);
+    }
 
     return () => {
-      clearTimeout(timer);
+      timers.forEach((t) => clearTimeout(t));
+      if (resizeObserver) resizeObserver.disconnect();
     };
   }, [isOpen]);
 
@@ -237,7 +259,6 @@ export const MapPinModal: React.FC<MapPinModalProps> = ({
     e.preventDefault();
     if (!searchQuery.trim()) return;
 
-    setIsSearching(true);
     try {
       const res = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=4`
@@ -254,8 +275,6 @@ export const MapPinModal: React.FC<MapPinModalProps> = ({
         lon: s.lng.toString(),
       }));
       setSearchResults(filtered);
-    } finally {
-      setIsSearching(false);
     }
   };
 
@@ -274,24 +293,32 @@ export const MapPinModal: React.FC<MapPinModalProps> = ({
     setSearchQuery('');
   };
 
-  // Auto-detect Loft (Point B) using GPS
-  const handleLocateLoft = () => {
-    if (!navigator.geolocation) return;
-    setIsLocatingLoft(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setIsLocatingLoft(false);
-        setPointB({
-          name: 'My Current Loft (GPS)',
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-        });
-      },
-      () => {
-        setIsLocatingLoft(false);
-      },
-      { timeout: 10000 }
-    );
+  // GPS for Location A (Release Point)
+  const handleLocatePointA = async () => {
+    setIsLocatingPointA(true);
+    try {
+      const { lat, lng } = await getCurrentGpsLocation();
+      const name = await reverseGeocodeName(lat, lng, 'Release Site (GPS)');
+      setPointA({ name: `${name} (Release GPS)`, lat, lng });
+    } catch (err) {
+      alert('Could not get GPS location for Point A. Please verify location permissions.');
+    } finally {
+      setIsLocatingPointA(false);
+    }
+  };
+
+  // GPS for Location B (Loft)
+  const handleLocatePointB = async () => {
+    setIsLocatingPointB(true);
+    try {
+      const { lat, lng } = await getCurrentGpsLocation();
+      const name = await reverseGeocodeName(lat, lng, 'Loft (GPS)');
+      setPointB({ name: `${name} Loft (GPS)`, lat, lng });
+    } catch (err) {
+      alert('Could not get GPS location for Point B. Please verify location permissions.');
+    } finally {
+      setIsLocatingPointB(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -304,10 +331,10 @@ export const MapPinModal: React.FC<MapPinModalProps> = ({
           <div>
             <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
               <MapPin className="w-4 h-4 text-sky-500" />
-              Pin Distance (Crow Flight)
+              Pin Distance & Location GPS
             </h2>
             <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              Pin Release Point A & Loft Point B on the map
+              Set Release Point A & Loft Point B via map or device GPS
             </p>
           </div>
           <button
@@ -318,7 +345,7 @@ export const MapPinModal: React.FC<MapPinModalProps> = ({
           </button>
         </div>
 
-        {/* Pin Target Selector & Search */}
+        {/* Pin Target Selector & GPS Actions */}
         <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 space-y-2 shrink-0">
           {/* Target Tabs */}
           <div className="grid grid-cols-2 gap-2">
@@ -357,30 +384,42 @@ export const MapPinModal: React.FC<MapPinModalProps> = ({
             </button>
           </div>
 
-          {/* Search bar & GPS Loft shortcut */}
-          <div className="flex gap-1.5">
-            <form onSubmit={handleSearch} className="flex-1 relative">
-              <input
-                type="text"
-                placeholder={`Search city or place for Point ${activePinTarget}...`}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-sky-500"
-              />
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
-            </form>
+          {/* Dedicated GPS Buttons for Location A & Location B */}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={handleLocatePointA}
+              disabled={isLocatingPointA}
+              className="py-1.5 px-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-[11px] font-semibold flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer shadow-xs"
+              title="Locate my current GPS location for Location A (Release Point)"
+            >
+              <Navigation className={`w-3.5 h-3.5 ${isLocatingPointA ? 'animate-spin' : ''}`} />
+              <span>{isLocatingPointA ? 'Getting GPS...' : 'GPS for Point A'}</span>
+            </button>
 
             <button
               type="button"
-              onClick={handleLocateLoft}
-              disabled={isLocatingLoft}
-              className="px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium flex items-center gap-1 shrink-0 transition cursor-pointer"
-              title="Pin my current GPS location as Loft (Point B)"
+              onClick={handleLocatePointB}
+              disabled={isLocatingPointB}
+              className="py-1.5 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer shadow-xs"
+              title="Locate my current GPS location for Location B (Loft)"
             >
-              <Navigation className={`w-3.5 h-3.5 ${isLocatingLoft ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">GPS Loft</span>
+              <Navigation className={`w-3.5 h-3.5 ${isLocatingPointB ? 'animate-spin' : ''}`} />
+              <span>{isLocatingPointB ? 'Getting GPS...' : 'GPS for Point B'}</span>
             </button>
           </div>
+
+          {/* Search bar */}
+          <form onSubmit={handleSearch} className="relative">
+            <input
+              type="text"
+              placeholder={`Search city or place for Point ${activePinTarget}...`}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-sky-500"
+            />
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+          </form>
 
           {/* Search results dropdown if any */}
           {searchResults.length > 0 && (

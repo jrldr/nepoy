@@ -22,6 +22,7 @@ import {
   LocationCoordinates,
 } from './utils/solar';
 import { safeStorage } from './utils/storage';
+import { getCurrentGpsLocation, reverseGeocodeName } from './utils/geo';
 import {
   calculatePigeonSpeed,
   generateTargetArrivals,
@@ -68,6 +69,22 @@ function parseDateTime(dateStr: string, timeStr: string): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
+interface SavedActiveState {
+  distanceKm: number;
+  pointAName: string;
+  pointBName: string;
+  pointACoords: { lat: number; lng: number } | null;
+  pointBCoords: { lat: number; lng: number } | null;
+  location: LocationCoordinates;
+  isAutoLocal: boolean;
+  isPointBUserLocation: boolean;
+  releaseDateStr: string;
+  releaseTimeStr: string;
+  arrivalDateStr: string;
+  arrivalTimeStr: string;
+  customOverride?: { sunriseHour?: number; sunsetHour?: number };
+}
+
 export default function App() {
   // Theme state
   const [darkMode, setDarkMode] = useState<boolean>(() => {
@@ -97,36 +114,67 @@ export default function App() {
     }
   }, [darkMode]);
 
-  // Location & Sun Times State (General default, user customizable)
-  const [location, setLocation] = useState<LocationCoordinates>(DEFAULT_COORDINATES);
-  const [isAutoLocal, setIsAutoLocal] = useState<boolean>(false);
-  const [isLoadingLocal, setIsLoadingLocal] = useState<boolean>(false);
-  const [customOverride, setCustomOverride] = useState<{ sunriseHour?: number; sunsetHour?: number } | undefined>();
+  // Read saved active state from local storage on load
+  const initialActiveState: SavedActiveState | null = useMemo(() => {
+    try {
+      const raw = safeStorage.getItem('pigeon_active_state');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }, []);
 
-  // Race Parameters & Coordinates State (General)
-  const [distanceKm, setDistanceKm] = useState<number>(350);
-  const [pointAName, setPointAName] = useState<string>('Release Station (Point A)');
-  const [pointBName, setPointBName] = useState<string>('My Loft (Point B)');
-  const [pointACoords, setPointACoords] = useState<{ lat: number; lng: number } | null>({
-    lat: 16.9248,
-    lng: 121.7738,
-  });
-  const [pointBCoords, setPointBCoords] = useState<{ lat: number; lng: number } | null>({
-    lat: 14.5995,
-    lng: 120.9842,
-  });
+  const today = useMemo(() => new Date(), []);
+
+  // Location & Sun Times State
+  const [location, setLocation] = useState<LocationCoordinates>(
+    initialActiveState?.location || DEFAULT_COORDINATES
+  );
+  const [isAutoLocal, setIsAutoLocal] = useState<boolean>(
+    initialActiveState?.isAutoLocal ?? false
+  );
+  const [isLoadingLocal, setIsLoadingLocal] = useState<boolean>(false);
+  const [customOverride, setCustomOverride] = useState<{ sunriseHour?: number; sunsetHour?: number } | undefined>(
+    initialActiveState?.customOverride
+  );
+
+  // Race Parameters & Coordinates State
+  const [distanceKm, setDistanceKm] = useState<number>(
+    initialActiveState?.distanceKm ?? 350
+  );
+  const [pointAName, setPointAName] = useState<string>(
+    initialActiveState?.pointAName || 'Release Station (Point A)'
+  );
+  const [pointBName, setPointBName] = useState<string>(
+    initialActiveState?.pointBName || 'My Loft (Point B)'
+  );
+  const [pointACoords, setPointACoords] = useState<{ lat: number; lng: number } | null>(
+    initialActiveState?.pointACoords || { lat: 16.9248, lng: 121.7738 }
+  );
+  const [pointBCoords, setPointBCoords] = useState<{ lat: number; lng: number } | null>(
+    initialActiveState?.pointBCoords || { lat: 14.5995, lng: 120.9842 }
+  );
 
   // GPS Loft Location State
   const [isLocatingPointB, setIsLocatingPointB] = useState<boolean>(false);
-  const [isPointBUserLocation, setIsPointBUserLocation] = useState<boolean>(false);
+  const [isPointBUserLocation, setIsPointBUserLocation] = useState<boolean>(
+    initialActiveState?.isPointBUserLocation ?? false
+  );
 
   // Date and Time inputs
-  const today = useMemo(() => new Date(), []);
-  const [releaseDateStr, setReleaseDateStr] = useState<string>(toDateInputValue(today));
-  const [releaseTimeStr, setReleaseTimeStr] = useState<string>('06:00');
+  const [releaseDateStr, setReleaseDateStr] = useState<string>(
+    initialActiveState?.releaseDateStr || toDateInputValue(today)
+  );
+  const [releaseTimeStr, setReleaseTimeStr] = useState<string>(
+    initialActiveState?.releaseTimeStr || '06:00'
+  );
 
-  const [arrivalDateStr, setArrivalDateStr] = useState<string>('');
-  const [arrivalTimeStr, setArrivalTimeStr] = useState<string>('');
+  const [arrivalDateStr, setArrivalDateStr] = useState<string>(
+    initialActiveState?.arrivalDateStr || ''
+  );
+  const [arrivalTimeStr, setArrivalTimeStr] = useState<string>(
+    initialActiveState?.arrivalTimeStr || ''
+  );
 
   // Modals
   const [isMapOpen, setIsMapOpen] = useState<boolean>(false);
@@ -141,6 +189,44 @@ export default function App() {
       return [];
     }
   });
+
+  // Automatically save current user data/state to localStorage whenever inputs change
+  useEffect(() => {
+    try {
+      const stateToSave: SavedActiveState = {
+        distanceKm,
+        pointAName,
+        pointBName,
+        pointACoords,
+        pointBCoords,
+        location,
+        isAutoLocal,
+        isPointBUserLocation,
+        releaseDateStr,
+        releaseTimeStr,
+        arrivalDateStr,
+        arrivalTimeStr,
+        customOverride,
+      };
+      safeStorage.setItem('pigeon_active_state', JSON.stringify(stateToSave));
+    } catch {
+      // safe ignore
+    }
+  }, [
+    distanceKm,
+    pointAName,
+    pointBName,
+    pointACoords,
+    pointBCoords,
+    location,
+    isAutoLocal,
+    isPointBUserLocation,
+    releaseDateStr,
+    releaseTimeStr,
+    arrivalDateStr,
+    arrivalTimeStr,
+    customOverride,
+  ]);
 
   // Calculate Sun Times for the selected release date (or today)
   const solarTimes = useMemo(() => {
@@ -211,114 +297,60 @@ export default function App() {
     );
   }, [distanceKm, releaseDateObj, location, customOverride]);
 
-  // Get User's Current Location as Point B (Loft)
-  const handleGetLocationAsPointB = () => {
-    if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your browser.');
-      return;
-    }
+  // Get User's Current Location as Point B (Loft) with robust fallbacks
+  const handleGetLocationAsPointB = async () => {
     setIsLocatingPointB(true);
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude, longitude } = pos.coords;
-        let loftName = `My Loft (${latitude.toFixed(3)}°, ${longitude.toFixed(3)}°)`;
+    try {
+      const { lat, lng } = await getCurrentGpsLocation();
+      const place = await reverseGeocodeName(lat, lng, 'Loft');
+      const loftName = `${place} Loft`;
 
-        try {
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
-          );
-          const data = await res.json();
-          if (data && data.address) {
-            const area =
-              data.address.suburb ||
-              data.address.neighbourhood ||
-              data.address.city ||
-              data.address.town ||
-              data.address.municipality;
-            if (area) {
-              loftName = `${area} Loft`;
-            }
-          }
-        } catch {
-          // offline fallback is fine
-        }
+      setPointBCoords({ lat, lng });
+      setPointBName(loftName);
+      setIsPointBUserLocation(true);
 
-        setPointBCoords({ lat: latitude, lng: longitude });
-        setPointBName(loftName);
-        setIsPointBUserLocation(true);
-        setIsLocatingPointB(false);
+      // Update solar times location to user's exact loft position
+      setLocation({
+        name: `${loftName} (Sun)`,
+        lat,
+        lng,
+      });
+      setIsAutoLocal(true);
 
-        // Also update local sun times to user's exact loft location!
-        setLocation({
-          name: `${loftName} (Sun)`,
-          lat: latitude,
-          lng: longitude,
-        });
-        setIsAutoLocal(true);
-
-        // If Point A coordinates exist, recalculate crow flight distance
-        if (pointACoords) {
-          const res = calculateHaversineDistanceKm(
-            pointACoords.lat,
-            pointACoords.lng,
-            latitude,
-            longitude
-          );
-          setDistanceKm(res.distanceKm);
-        }
-      },
-      (err) => {
-        setIsLocatingPointB(false);
-        console.warn('Geolocation error:', err.message);
-        alert('Could not get GPS location. Please check location permissions.');
-      },
-      { timeout: 10000, enableHighAccuracy: true }
-    );
+      // Recalculate crow flight distance if Point A exists
+      if (pointACoords) {
+        const res = calculateHaversineDistanceKm(
+          pointACoords.lat,
+          pointACoords.lng,
+          lat,
+          lng
+        );
+        setDistanceKm(res.distanceKm);
+      }
+    } catch (err) {
+      alert('Could not retrieve GPS coordinates. Please check location permissions.');
+    } finally {
+      setIsLocatingPointB(false);
+    }
   };
 
-  // Auto-Local Geolocation for general sun times
-  const handleAutoLocal = () => {
-    if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your browser.');
-      return;
-    }
+  // Auto-Local Geolocation for general sun times with robust fallbacks
+  const handleAutoLocal = async () => {
     setIsLoadingLocal(true);
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude, longitude } = pos.coords;
-        let placeName = `Local (${latitude.toFixed(2)}°, ${longitude.toFixed(2)}°)`;
-
-        try {
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
-          );
-          const data = await res.json();
-          if (data && data.address) {
-            placeName =
-              data.address.city ||
-              data.address.town ||
-              data.address.municipality ||
-              data.address.state ||
-              placeName;
-          }
-        } catch {
-          // offline fallback is fine
-        }
-
-        setLocation({
-          name: placeName,
-          lat: latitude,
-          lng: longitude,
-        });
-        setIsAutoLocal(true);
-        setIsLoadingLocal(false);
-      },
-      (err) => {
-        setIsLoadingLocal(false);
-        console.warn('Geolocation error:', err.message);
-      },
-      { timeout: 10000 }
-    );
+    try {
+      const { lat, lng } = await getCurrentGpsLocation();
+      const placeName = await reverseGeocodeName(lat, lng, 'Local');
+      setLocation({
+        name: placeName,
+        lat,
+        lng,
+      });
+      setIsAutoLocal(true);
+    } catch {
+      alert('Could not retrieve GPS coordinates. Please check location permissions.');
+    } finally {
+      setIsLoadingLocal(false);
+    }
   };
 
   const handleResetLocation = () => {
@@ -326,7 +358,7 @@ export default function App() {
     setIsAutoLocal(false);
   };
 
-  // Reset all calculator inputs
+  // Reset all calculator inputs & clear saved active state
   const handleResetAll = () => {
     const now = new Date();
     setDistanceKm(350);
@@ -341,6 +373,8 @@ export default function App() {
     setArrivalTimeStr('');
     setLocation(DEFAULT_COORDINATES);
     setIsAutoLocal(false);
+    setCustomOverride(undefined);
+    safeStorage.removeItem('pigeon_active_state');
   };
 
   // Quick action: Set release to right now
@@ -363,7 +397,7 @@ export default function App() {
     setArrivalTimeStr('');
   };
 
-  // Save current race result
+  // Save current race result to saved history
   const handleSaveRace = () => {
     if (!officialSpeedResult || !releaseDateObj || !arrivalDateObj) return;
 
